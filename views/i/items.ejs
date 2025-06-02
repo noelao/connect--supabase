@@ -1,0 +1,27 @@
+<style>
+    h1, h2 { color: #333; }
+    ul { list-style: none; padding: 0; }
+    li { background-color: #f9f9f9; border: 1px solid #ddd; margin-bottom: 8px; padding: 10px; border-radius: 4px; }
+    .kategori { font-style: italic; color: #555; }
+</style>
+
+<h1><%= judul %></h1>
+<p class="kategori">Menampilkan produk untuk kategori: <%= kategori %></p>
+
+<h2>Daftar Item:</h2>
+<% if (data && data.length > 0) { %>
+    <ul>
+        <% data.forEach(function(barang) { %>
+            <li>
+                <strong>Nama:</strong> <%= barang.name %><br>
+                <p style="text-decoration:underline,">
+                    Ket: <%= barang.description %>
+                </p>
+                <br>
+                <strong>Harga:</strong> Rp<%= barang.harga.toLocaleString('id-ID') %>
+            </li>
+        <% }); %>
+    </ul>
+<% } else { %>
+    <p>Tidak ada produk untuk ditampilkan saat ini.</p>
+<% } %>

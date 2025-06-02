@@ -1,0 +1,23 @@
+<header>
+    <div class="kiri">
+        <a href="/">
+            <h3>Logo</h3>
+        </a>
+    </div>
+
+    <div class="kanan">
+        <% if (currentUser) { %> 
+            <a href="/empu/id/<%= currentUser.userId %>">
+                <small>@<%= currentUser.username %></small>
+            </a>
+            <a href="/logout">
+                <p>Logout</p>
+            </a>
+        <% } else { %>
+            <a href="/login">
+                <p>login</p>
+            </a>
+        <% } %>
+    </div>
+
+</header>

@@ -1,0 +1,105 @@
+<style>
+    .inputan {
+        width: max-content;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        .apa {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            justify-content: space-around;
+            .pilihan {
+                opacity: .3;
+                cursor: pointer;
+            }
+            .terpilih {
+                opacity: 1;
+            }
+        }
+    }
+    .pisahkan {
+        width: 342px;
+        overflow: hidden;
+        height: 320px;
+
+        display: flex;
+        position: relative;
+
+        form {
+            position: absolute;
+            top: 0;
+            left: 0;
+
+            width: 100%;
+            padding: 12px;
+
+            transition: transform .3s ease;
+            input {
+                width: 100%;
+            }
+        }
+        form:nth-child(2){
+            left: 100%;
+        }
+        .geser {
+            transform: translateX(-100%);
+        }
+    }
+
+</style>
+<div class="inputan">
+<div class="apa">
+    <h2 class="pilihan terpilih">Login</h2>
+    <div class="garis"></div>
+    <h2 class="pilihan">Sign In</h2>
+</div>
+
+<div class="pisahkan">
+    <form action="/login" method="post">
+        <label for="username">Username:</label>
+        <input type="text" id="name" name="name" required><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br>
+        <input type="submit" value="Login"></label>
+    </form>
+    <form action="/lahirkan" method="post">
+        <label for="username">Username:</label>
+        <input type="text" id="name" name="name" required><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br>
+        <input type="submit" value="Login"></label>
+    </form>
+</div>
+
+<script>
+    const pilihan = document.querySelectorAll(".pilihan")
+    const form = document.querySelectorAll("form")
+
+    pertama = true
+    pilihan.forEach((ini, i) => {
+        ini.addEventListener("click", () => {
+            if(i == 0){
+                pilihan[0].classList.contains("terpilih") ? "" : pilihan[0].classList.add("terpilih");
+                pilihan[1].classList.contains("terpilih") ? pilihan[1].classList.remove("terpilih") : "";
+                geserForm(0)
+            } else if(i == 1){
+                pilihan[0].classList.contains("terpilih") ? pilihan[0].classList.remove("terpilih") : "";
+                pilihan[1].classList.contains("terpilih") ? "" : pilihan[1].classList.add("terpilih");
+                geserForm(1)
+            }
+        })
+    })
+    function geserForm(i){
+        form.forEach((hi, h) => {
+            if(i == 0){
+                form[0].classList.contains("geser") ? form[0].classList.remove("geser") : "";
+                form[1].classList.contains("geser") ? form[1].classList.remove("geser") : "";
+            } else if(i == 1){
+                form[0].classList.contains("geser") ? "" : form[0].classList.add("geser");
+                form[1].classList.contains("geser") ? "" : form[1].classList.add("geser");
+            }
+        })
+    }
+</script>
+</div>

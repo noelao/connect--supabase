@@ -1,0 +1,21 @@
+header {
+    width: 100%;
+    padding: 6px 14px;
+    height: 70px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: var(--terang);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .kanan {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+
+        gap: 12px;
+    }
+}

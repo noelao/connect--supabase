@@ -1,0 +1,91 @@
+<div style="
+
+">
+<style>
+    #status-ping {
+            display: flex;
+            position: fixed;
+            right: 12px;
+            top: 82px;
+            background-color: #27d15d;
+            border-radius: 8px;
+            min-height: 12px;
+            min-width: 12px;
+            transition: background-color .3s ease;
+        }
+    #status-ping.online { background-color:#28a745; }
+    #status-ping.offline { background-color:#dc3545; }
+    #status-ping.checking { background-color:#ffc107; }
+    #ping-result { font-weight: bold; }
+</style>
+    <div id="status-ping">
+    </div>
+
+<script>
+    const statusPingElement = document.getElementById('status-ping');
+
+    const PING_URL = 'https://www.google.com/favicon.ico'; // Resource kecil dan cepat
+    const PING_INTERVAL = 5000; // Cek setiap 5 detik (5000 ms)
+    let pingTimer;
+
+    async function checkConnectivity() {
+
+        // Selalu tampilkan "Mengecek..." sebelum memulai fetch
+        statusPingElement.className = 'checking';
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), PING_INTERVAL - 500); // Timeout sedikit lebih cepat dari interval
+
+        try {
+            // Menambahkan timestamp unik untuk mencegah caching yang agresif
+            const response = await fetch(`${PING_URL}?t=${new Date().getTime()}`, {
+                method: 'HEAD', // HEAD request lebih ringan karena hanya minta header
+                mode: 'no-cors', // Untuk menghindari masalah CORS saat ping ke domain lain (respons akan opaque)
+                cache: 'no-store', // Jangan gunakan cache
+                signal: controller.signal // Untuk membatalkan fetch jika timeout
+            });
+
+            // Meskipun 'no-cors' membuat kita tidak bisa membaca status code,
+            // jika fetch berhasil (tidak masuk ke catch), kita anggap online.
+            statusPingElement.className = 'online';
+            console.log('Ping ke Google berhasil (respons diterima)');
+
+        } catch (error) {
+            statusPingElement.className = 'offline';
+            console.error('Ping ke Google gagal:', error.name === 'AbortError' ? 'Timeout' : error);
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // Fungsi untuk memulai dan menghentikan streaming
+    function startRealtimeCheck() {
+        if (pingTimer) {
+            clearInterval(pingTimer);
+        }
+        checkConnectivity(); // Panggil sekali di awal
+        pingTimer = setInterval(checkConnectivity, PING_INTERVAL);
+        console.log('Pengecekan real-time dimulai...');
+    }
+
+    function stopRealtimeCheck() {
+        if (pingTimer) {
+            clearInterval(pingTimer);
+            pingTimer = null;
+            console.log('Pengecekan real-time dihentikan.');
+        }
+    }
+
+    // Mulai pengecekan saat halaman dimuat
+    window.addEventListener('load', () => {
+        startRealtimeCheck();
+    });
+
+    // Update status navigator.onLine jika berubah
+
+    // Opsional: Anda bisa menambahkan tombol untuk start/stop
+    // document.getElementById('startButton').addEventListener('click', startRealtimeCheck);
+    // document.getElementById('stopButton').addEventListener('click', stopRealtimeCheck);
+
+</script>
+</div>

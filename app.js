@@ -1,96 +1,300 @@
 // Import modul yang diperlukan
 require('dotenv').config(); // Memuat variabel lingkungan dari file .env
-const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const express = require('express');
+const path = require('path')
+const multer = require('multer')
+const cookieParser = require('cookie-parser');
 
-// Inisialisasi aplikasi Express
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Dapatkan URL Supabase dan Service Key dari variabel lingkungan
+const { ambilSemua, tambahBarang } = require('./utils/barang')
+const { 
+  getUserByUsernameSupabase, 
+  cobaLogin, verifyToken, 
+  authorizeAdmin, prosesRegistrasi,
+  authSession
+} = require("./utils/empu")
+
+
+// ejs
+const expressLayouts = require('express-ejs-layouts');
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(expressLayouts);
+app.set('layout', 'layouts/main')
+
+
+// perlu ini, meddleware fungsi untuk membantu proses post ke alamat action
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cookieParser());
+
+
+// Konfigurasi Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // Gunakan Service Key untuk operasi backend
-
-// Pastikan variabel lingkungan sudah diatur
 if (!supabaseUrl || !supabaseKey) {
   console.error("Error: Pastikan SUPABASE_URL dan SUPABASE_SERVICE_KEY sudah diatur di file .env Anda.");
-  process.exit(1); // Keluar jika variabel tidak ditemukan
+  process.exit(1);
 }
-
-// Buat klien Supabase
-// Untuk operasi di sisi server (backend), biasanya Anda akan menggunakan service_role key
-// yang memiliki hak akses lebih tinggi dan bisa melewati Row Level Security (RLS) jika diperlukan.
 const supabase = createClient(supabaseUrl, supabaseKey);
+// 
+app.use(authSession, (req, res, next) => {
+  // Membuat variabel 'currentUser' tersedia di semua template EJS
+  // Jika req.user ada (biasanya di-set oleh Passport.js setelah login berhasil)
+  // atau req.session.user (jika Anda menyimpannya secara manual di session)
+  console.log("ini dieksekusi ...")
+  try {
+    if(req.user){
+      res.locals.currentUser = req.user;
+      // console.log(res.locals.currentUser)
+    } else {
+      res.locals.currentUser = null;
+      // console.log(res.locals.currentUser)
+    }
+  } catch (err){
+    console.log(err)
+    res.locals.currentUser = null;
+  }
+  next();
+});
 
-// Middleware untuk parsing JSON
-app.use(express.json());
+app.get('/', (req, res) => {
+  res.render('i/index');
+});
 
-// Contoh: Membuat route untuk mengambil semua data dari tabel 'barangKenapaTidak'
 app.get('/items', async (req, res) => {
   try {
-    console.log("Mencoba mengambil data dari tabel 'barangKenapaTidak'...");
-    // Mengambil semua kolom (*) dari 'barangKenapaTidak'
-    const { data, error, status } = await supabase
-      .from('barangKenapaTidak') // MENGGUNAKAN NAMA TABEL ANDA
-      .select('*'); // Mengambil semua kolom
+    const data = await ambilSemua(supabase);
 
-    if (error) {
-      // Jika ada error dari Supabase saat query
-      console.error('Supabase error:', error.message, 'Status:', status);
-      // Melempar error agar bisa ditangkap oleh blok catch di bawah
-      // dan mengirimkan respons error yang lebih informatif ke klien
-      return res.status(status || 500).json({ message: `Supabase error: ${error.message}`, details: error.details });
+    kiriman = {
+      judul: 'Barang',
+      data,
+      kategori: 'semua'
     }
 
-    // Log data yang diterima dari Supabase (sebelum dikirim ke klien)
-    console.log("Data yang diterima dari Supabase:", JSON.stringify(data, null, 2));
-
-    // Periksa apakah data yang diterima adalah array kosong
-    if (data && data.length === 0) {
-      console.log("Tidak ada data ditemukan di tabel 'barangKenapaTidak'.");
-    }
-
-    res.json(data); // Kirim data sebagai response JSON
+    // res.json(data); // Kirim data sebagai response JSON
+    res.render('i/items', kiriman)
   } catch (error) {
-    // Menangani error umum atau error yang dilempar dari blok try
-    // (Ini mungkin tidak akan terpanggil jika error Supabase sudah ditangani di atas,
-    // tapi baik untuk penanganan error tak terduga lainnya)
     console.error('Error fetching items:', error.message);
     res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 });
 
-// Contoh: Membuat route untuk menambahkan data baru ke 'barangKenapaTidak'
 app.post('/items', async (req, res) => {
   try {
     const newItem = req.body; // Misal: { column1: 'value1', column2: 'value2' }
+    console.log(newItem)
+    const hasil = await tambahBarang(newItem, supabase);
+    console.log(hasil)
 
-    // Pastikan ada data yang dikirim
-    if (!newItem || Object.keys(newItem).length === 0) {
-      return res.status(400).json({ message: 'Request body tidak boleh kosong.' });
+    const data = await ambilSemua(supabase);
+
+    kiriman = {
+      judul: 'Barang',
+      data,
+      kategori: 'semua',
     }
 
-    console.log("Mencoba menambahkan item baru:", newItem, "ke tabel 'barangKenapaTidak'");
-
-    const { data, error, status } = await supabase
-      .from('barangKenapaTidak') // MENGGUNAKAN NAMA TABEL ANDA
-      .insert([newItem])      // Masukkan data baru
-      .select();              // Kembalikan data yang baru dimasukkan
-
-    if (error) {
-      console.error('Supabase error on insert:', error.message, 'Status:', status);
-      // Cek detail error spesifik dari Supabase jika ada
-      if (error.details) console.error('Error details:', error.details);
-      return res.status(status || 500).json({ message: `Supabase error: ${error.message}`, details: error.details });
-    }
-
-    console.log("Item berhasil ditambahkan:", data);
-    res.status(201).json({ message: 'Item berhasil ditambahkan', item: data });
+    res.render('i/items', kiriman)
   } catch (error) {
     console.error('Error adding item:', error.message);
     res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 });
+
+app.get('/items/tambah', (req, res) => {
+  kiriman = {
+    judul: "tambah Barang"
+  }
+  res.render('i/tambahBarang', kiriman)
+});
+
+
+app.get('/admin', verifyToken, authorizeAdmin, async (req, res) => {
+  const userId = req.user.userId;
+  const userNama = req.user.username;
+  const role = req.user.role;
+
+  const data = await getUserByUsernameSupabase(userNama, supabase)
+
+  const kiriman = {
+    judul: "King",
+    userId,
+    role: role || "npc",
+    data,
+  }
+
+  try {
+    res.render("i/admin", kiriman)
+  } catch (error) {
+    console.error('Error di rute /profil-saya:', error);
+    res.status(500).json({ message: 'Gagal mengambil data profil.' });
+  }
+});
+
+app.get('/login', async(req, res) => {
+  const kiriman = {
+    judul: 'login'
+  }
+
+  res.render("i/login", kiriman)
+})
+
+app.post('/login', async (req, res) => {
+  const { name, password } = req.body;
+  console.log('Menerima permintaan login untuk:', name);
+
+  if (!name || !password) {
+    // Jika validasi gagal, kirim JSON dan jangan redirect dari sini
+    return res.status(400).json({ message: 'Nama (username) dan password diperlukan.' });
+  }
+
+  try {
+    const loginResult = await cobaLogin({ name, password }, supabase);
+
+    if (loginResult.success && loginResult.token) {
+      // Login berhasil, sematkan token di HTTP-Only cookie
+      res.cookie('authToken', loginResult.token, {
+        httpOnly: true, // Cookie tidak bisa diakses oleh JavaScript sisi klien
+        secure: process.env.NODE_ENV === 'production', // Kirim hanya melalui HTTPS di produksi
+        sameSite: 'strict', // Membantu melindungi dari serangan CSRF
+        maxAge: 3600000 // Masa berlaku cookie (misalnya, 1 jam dalam milidetik)
+        // path: '/' // Cookie berlaku untuk semua path (default)
+      });
+      console.log('Token disematkan di cookie, redirecting ke /admin');
+      // Setelah cookie diatur, redirect ke halaman admin
+      // Klien akan menerima cookie dan kemudian dialihkan.
+      return res.redirect('/admin');
+    } else {
+      // Login gagal (username/password salah, atau tidak ada token yang dihasilkan)
+      console.log('Login gagal:', loginResult.message);
+      // Redirect ke halaman login lagi dengan pesan error (opsional, atau kirim JSON)
+      // Untuk konsistensi, jika ingin menampilkan pesan di halaman login,
+      // Anda mungkin perlu menggunakan flash messages atau query params.
+      // Di sini kita akan redirect saja.
+      return res.redirect('/login?error=authfailed'); // Atau kirim respons JSON
+      // return res.status(401).json({ message: loginResult.message || 'Username atau password salah.' });
+    }
+  } catch (error) {
+    console.error('Error di rute /login:', error);
+    // Redirect ke halaman login dengan pesan error umum
+    return res.redirect('/login?error=servererror'); // Atau kirim respons JSON
+    // return res.status(500).json({ message: 'Terjadi kesalahan internal saat mencoba login.' });
+  }
+  // Baris ini seharusnya tidak pernah tercapai jika logika di atas sudah benar dengan return
+});
+
+app.get('/logout', (req, res) => {
+  res.clearCookie('authToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/' // Penting: path harus cocok dengan saat cookie diatur
+  });
+  console.log('User logout, cookie authToken dihapus.');
+  res.redirect('/login?message=logoutsuccess');
+});
+
+
+app.get('/lahirkan', async(req, res) => {
+  const kiriman = {
+    judul: 'create user'
+  }
+
+  res.render("i/lahirkan", kiriman)
+})
+app.post('/lahirkan', async(req, res) => {
+  const { name, password } = req.body;
+  console.log(req.body)
+
+  const regis = await prosesRegistrasi({ name, password }, supabase)
+
+  console.log(regis)
+
+  
+  if (!name || !password) {
+    // Jika validasi gagal, kirim JSON dan jangan redirect dari sini
+    return res.status(400).json({ message: 'Nama (username) dan password diperlukan.' });
+  }
+
+  try {
+    const loginResult = await cobaLogin({ name, password }, supabase);
+
+    if (loginResult.success && loginResult.token) {
+      // Login berhasil, sematkan token di HTTP-Only cookie
+      res.cookie('authToken', loginResult.token, {
+        httpOnly: true, // Cookie tidak bisa diakses oleh JavaScript sisi klien
+        secure: process.env.NODE_ENV === 'production', // Kirim hanya melalui HTTPS di produksi
+        sameSite: 'strict', // Membantu melindungi dari serangan CSRF
+        maxAge: 3600000 // Masa berlaku cookie (misalnya, 1 jam dalam milidetik)
+        // path: '/' // Cookie berlaku untuk semua path (default)
+      });
+      console.log('Token disematkan di cookie, redirecting ke /admin');
+      // Setelah cookie diatur, redirect ke halaman admin
+      // Klien akan menerima cookie dan kemudian dialihkan.
+      return res.redirect('/admin');
+    } else {
+      // Login gagal (username/password salah, atau tidak ada token yang dihasilkan)
+      console.log('Login gagal:', loginResult.message);
+      // Redirect ke halaman login lagi dengan pesan error (opsional, atau kirim JSON)
+      // Untuk konsistensi, jika ingin menampilkan pesan di halaman login,
+      // Anda mungkin perlu menggunakan flash messages atau query params.
+      // Di sini kita akan redirect saja.
+      return res.redirect('/login?error=authfailed'); // Atau kirim respons JSON
+      // return res.status(401).json({ message: loginResult.message || 'Username atau password salah.' });
+    }
+  } catch (error) {
+    console.error('Error di rute /login:', error);
+    // Redirect ke halaman login dengan pesan error umum
+    return res.redirect('/login?error=servererror'); // Atau kirim respons JSON
+    // return res.status(500).json({ message: 'Terjadi kesalahan internal saat mencoba login.' });
+  }
+})
+
+
+
+// Mengimpor rute pengguna
+const userRoutes = require('./routes/lainRoutes'); // Sesuaikan path jika struktur folder berbeda
+
+// Menggunakan rute pengguna dengan prefix '/api/users'
+// Semua rute yang didefinisikan di lainRutes.js akan diawali dengan /api/users
+// Contoh: GET /api/users/ akan ditangani oleh userRoutes.get('/') di lainRutes.js
+// Contoh: POST /api/users/ akan ditangani oleh userRoutes.post('/') di lainRutes.js
+app.use('/empu', userRoutes);
+
+// Middleware untuk menangani rute yang tidak ditemukan (404)
+app.use((req, res, next) => {
+  res.status(404).send("Maaf, halaman yang Anda cari tidak ditemukan.");
+});
+
+
+
+
+const storage = multer.memoryStorage();
+const MAX_FILE_SIZE_KB = 30; // Batas ukuran file dalam KB
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_KB * 1024; // Konversi ke byte
+
+const upload = multer({ 
+  storage: storage,
+  limits: { 
+    fileSize: MAX_FILE_SIZE_BYTES // Batas ukuran file 30KB
+  }, 
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error(`Error: Hanya file gambar (jpeg, jpg, png, gif) yang diizinkan! Ukuran maksimal ${MAX_FILE_SIZE_KB}KB.`));
+  }
+});
+
+
 
 
 // Menjalankan server
@@ -98,40 +302,3 @@ app.listen(port, () => {
   console.log(`Server berjalan di http://localhost:${port}`);
   console.log('Terhubung ke Supabase project:', supabaseUrl.substring(0, supabaseUrl.indexOf('.co') + 3) + '...'); // Hanya menampilkan bagian awal URL
 });
-
-// Pastikan Anda memiliki tabel bernama 'barangKenapaTidak' di Supabase
-// Contoh struktur tabel (sesuaikan dengan kebutuhan Anda):
-// id (int8, primary key, generated always as identity)
-// nama_barang (text)
-// jumlah (integer)
-// created_at (timestamptz, default: now())
-//
-// Anda bisa membuatnya melalui SQL Editor di Supabase Dashboard:
-/*
-  CREATE TABLE barangKenapaTidak (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    nama_barang TEXT NOT NULL,
-    jumlah INTEGER,
-    deskripsi TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-
-  -- Aktifkan Row Level Security (RLS) jika belum (opsional tapi direkomendasikan)
-  ALTER TABLE barangKenapaTidak ENABLE ROW LEVEL SECURITY;
-
-  -- Buat policy agar bisa dibaca semua orang (jika diperlukan untuk GET /items tanpa auth)
-  -- PERHATIAN: service_role key akan melewati RLS ini secara default.
-  -- Policy ini lebih relevan jika Anda menggunakan anon key atau JWT pengguna.
-  CREATE POLICY "Allow public read access for barangKenapaTidak"
-  ON barangKenapaTidak
-  FOR SELECT
-  USING (true);
-
-  -- Buat policy agar bisa diinsert semua orang (jika diperlukan untuk POST /items tanpa auth server-side)
-  -- HATI-HATI: Ini memungkinkan siapa saja untuk insert jika endpoint Anda publik dan menggunakan anon key.
-  -- service_role key akan melewati RLS ini secara default.
-  CREATE POLICY "Allow public insert access for barangKenapaTidak"
-  ON barangKenapaTidak
-  FOR INSERT
-  WITH CHECK (true);
-*/

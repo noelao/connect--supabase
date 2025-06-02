@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= judul %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1><%= judul %></h1>
+        <form action="/items" method="POST">
+            <div>
+                <label for="nama">Nama:</label>
+                <input class="nama" type="text" id="name" name="name" required>
+            </div>
+            <div>
+                <label for="nama">harga:</label>
+                <input class="nama" type="text" id="harga" name="harga" required>
+            </div>
+            <div>
+                <label for="nama">keterangan:</label>
+                <input class="nama" type="text" id="description" name="description" required>
+            </div>
+
+            <button type="submit">Kirim</button>
+        </form>
+    </div>
+</body>
+</html>
